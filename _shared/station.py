@@ -10,5 +10,5 @@ class Stations:
         self.color = color
         self.health = STATION_HEALTH
 
-    def to_bytes(self):
-        return f'{self.pos[0]};{self.pos[1]}'
+    def __str__(self):
+        return f'{self.pos[0]};{self.pos[1]};{self.color}'

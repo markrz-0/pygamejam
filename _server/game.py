@@ -2,6 +2,7 @@ import json
 import time
 import threading
 from _server import client
+from _shared.station import Stations
 from config import *
 
 
@@ -11,17 +12,18 @@ class Game:
         self.client2 = None
         self.crash = 0
 
-        # self.client1_queue = []
-        # self.client2_queue = []
-
         self.ships = []
         self.explosions = []
         self.stations = [
-
+            Stations((1000, 1000), Stations.FREE)
         ]
 
-    def handle_client(self, cl: client.Client, client_queue: list):
-        cl.conn.send(str().encode('utf-8'))
+    def stations_string(self):
+        strings = [str(s) for s in self.stations]
+        return '#'.join(strings)
+
+    def handle_client(self, cl: client.Client):
+        cl.conn.send(str(len(self.stations)).encode('utf-8'))
         ok_signal = cl.conn.recv(BUF_SIZE)
 
         cl.last_recv = time.time()
@@ -33,28 +35,27 @@ class Game:
 
         while True:
             time.sleep(0.016) # around 60 per second
-            if len(client_queue) > 0:
-                data = {
-                    'map': self.map.to_dict() # TODO: remove
-                }
+            data = {
+                "stations": self.stations_string() # TODO: add other data
+            }
+            data = json.dumps(data).encode('utf-8')
+            cl.conn.send(data)
 
-                data = json.dumps(data).encode('utf-8')
 
-                cl.conn.send(data)
-
-                data, addr = cl.conn.recv(BUF_SIZE)
-                cl.last_recv = time.time()
-
-                decoded_data = data.decode('utf-8')
-                # TODO: ships
+            data = cl.conn.recv(BUF_SIZE)
+            data = data.decode('utf-8')
+            if data == OK:
+                pass
+            else:
+                pass # TODO: process add ship
 
     def create(self, client1: client.Client, client2: client.Client):
         self.client1 = client1
         self.client2 = client2
 
 
-        threading.Thread(target=self.handle_client, args=(self.client1, self.client1_queue)).start()
-        threading.Thread(target=self.handle_client, args=(self.client2, self.client2_queue)).start()
+        threading.Thread(target=self.handle_client, args=(self.client1,)).start()
+        threading.Thread(target=self.handle_client, args=(self.client2,)).start()
 
         # TODO: client connection failures
         # while True:

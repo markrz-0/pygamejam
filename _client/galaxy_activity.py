@@ -56,20 +56,23 @@ class GalaxyActivity(activity.BaseActivity):
         self.gtxt = GalaxyText()
 
         self.net_queue = []
-        self.selected_ship = 0
+        self.selected_ship = 1
         self.ships = [
-            'squadron',
+            'squadron', # TODO: more ships
             'carrier',
         ]
-
-        self.add(self.gtxt)
 
         self.stations = []
         self.s = None # socket
         self.station_last_index = 0
         self.playing_as = '#'
+        self.color = 0
+        self.elixir = 0
 
     def start(self, session):
+        self.gameObjects.clear()
+        self.add(self.gtxt)
+
         num = session['stations_number']
         self.s = session['client']
         for _ in range(num):
@@ -79,6 +82,7 @@ class GalaxyActivity(activity.BaseActivity):
 
         col = session['playing_as']
         self.playing_as = 'RED' if col == 2 else 'BLUE'
+        self.color = col
 
 
         threading.Thread(target=self.networking).start()
@@ -89,22 +93,22 @@ class GalaxyActivity(activity.BaseActivity):
         self.net_queue.append(
             f'{world_pos[0]};{world_pos[1]};{self.selected_ship}'.encode('utf-8')
         ) # X;Y;S
-        print(self.net_queue)
 
-    def on_key_down(self, event: pygame.event.Event):
-        if event.key == pygame.K_e:
-            self.selected_ship += 1
-            if self.selected_ship == len(self.ships):
-                self.selected_ship = 0
+    # TODO: add more ships
+    # def on_key_down(self, event: pygame.event.Event):
+    #     if event.key == pygame.K_e:
+    #         self.selected_ship += 1
+    #         if self.selected_ship == len(self.ships):
+    #             self.selected_ship = 0
+    #
+    #     if event.key == pygame.K_q:
+    #         self.selected_ship -= 1
+    #         if self.selected_ship == -1:
+    #             self.selected_ship = len(self.ships) - 1
 
-        if event.key == pygame.K_q:
-            self.selected_ship -= 1
-            if self.selected_ship == -1:
-                self.selected_ship = len(self.ships) - 1
 
-
-    def post_update(self, g, session: dict): # TODO: maybe remove?
-        self.gtxt.text.text = f"Playing as {self.playing_as}\nSeleted: {self.ships[self.selected_ship]}"
+    def post_update(self, g, session: dict):
+        self.gtxt.text.text = f"Playing as {self.playing_as} Elixir {self.elixir}/{ELIXIR_FOR_SHIP[self.selected_ship]}"
 
     def process_data(self, data):
 
@@ -147,12 +151,18 @@ class GalaxyActivity(activity.BaseActivity):
 
         self.gameObjects = gameObjects
 
+        # elixir
+        self.elixir = data['elixir']
+
+        # winner
+        return data['winner']
+
 
     def networking(self):
         self.s.send(OK.encode('utf-8'))
-        while True: # TODO: infinite loop oops
+        while True:
             data = self.s.recv(BUF_SIZE)
-            self.process_data(data)
+            winner = self.process_data(data)
 
             msg = OK.encode('utf-8')
             if len(self.net_queue) > 0:
@@ -160,3 +170,8 @@ class GalaxyActivity(activity.BaseActivity):
                 print(msg)
 
             self.s.send(msg)
+            if winner:
+                helpers.add_session_data('result', 'WINNER' if self.color == winner else 'LOSER')
+                helpers.change_activity('result')
+                break
+

@@ -5,3 +5,4 @@ class Client:
         self.conn = conn
         self.addr = addr
         self.last_recv = time.time()
+        self.elixir = 0

@@ -10,6 +10,16 @@ from engine import colors, colliders, helpers, activity, border, text, gameObjec
 def distance(a, b):
     return np.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
 
+
+class Carrier(gameObject.GameObject):
+    def __init__(self, pos, col='red'):
+        super().__init__(
+            collider=colliders.Collider.RECT,
+            position=pos,
+            img_path=f'_client/img/carrier_{col}.png',
+            tag='ship'
+        )
+
 class Station(gameObject.GameObject):
     BLUE = '_client/img/station_blue.png'
     FREE = '_client/img/station_yellow.png'
@@ -48,14 +58,16 @@ class GalaxyActivity(activity.BaseActivity):
         self.net_queue = []
         self.selected_ship = 0
         self.ships = [
+            'squadron',
             'carrier',
-            'squadron'
         ]
 
         self.add(self.gtxt)
 
         self.stations = []
         self.s = None # socket
+        self.station_last_index = 0
+        self.playing_as = '#'
 
     def start(self, session):
         num = session['stations_number']
@@ -65,6 +77,10 @@ class GalaxyActivity(activity.BaseActivity):
             self.add(st)
             self.stations.append(st)
 
+        col = session['playing_as']
+        self.playing_as = 'RED' if col == 2 else 'BLUE'
+
+
         threading.Thread(target=self.networking).start()
 
     def on_mouse_down(self, event: pygame.event.Event):
@@ -73,6 +89,7 @@ class GalaxyActivity(activity.BaseActivity):
         self.net_queue.append(
             f'{world_pos[0]};{world_pos[1]};{self.selected_ship}'.encode('utf-8')
         ) # X;Y;S
+        print(self.net_queue)
 
     def on_key_down(self, event: pygame.event.Event):
         if event.key == pygame.K_e:
@@ -87,17 +104,48 @@ class GalaxyActivity(activity.BaseActivity):
 
 
     def post_update(self, g, session: dict): # TODO: maybe remove?
-        self.gtxt.text.text = f"Seleted: {self.ships[self.selected_ship]}"
+        self.gtxt.text.text = f"Playing as {self.playing_as}\nSeleted: {self.ships[self.selected_ship]}"
 
     def process_data(self, data):
+
+        # cleaning
+        gameObjects = []
+        for g in self.gameObjects:
+            if g.tag != 'ship':
+                if g.tag == 'explosion' and g.time < 0:
+                    continue
+                gameObjects.append(g)
+
         data = json.loads(data.decode('utf-8'))
+
         # stations
         stations_string = data['stations']
         if stations_string != '':
             stations = stations_string.split('#')
             for i, s in enumerate(stations):
                 x, y, c = s.split(';')
+                c = int(c)
                 self.stations[i].position = (int(x), int(y))
+                if c == 0:
+                    self.stations[i].set_color(Station.FREE)
+                elif c == 1:
+                    self.stations[i].set_color(Station.BLUE)
+                elif c == 2:
+                    self.stations[i].set_color(Station.RED)
+
+        # ships
+        ships_string = data['ships']
+        if ships_string != '':
+            ships = ships_string.split('#')
+            for i, s in enumerate(ships):
+                x, y, s, c = [int(float(v)//1) for v in s.split(';')]
+                col = 'red' if c == 2 else 'blue'
+                if s == 0: # fighter
+                    pass
+                elif s == 1: # carrier
+                    gameObjects.append(Carrier((x, y), col))
+
+        self.gameObjects = gameObjects
 
 
     def networking(self):
@@ -109,5 +157,6 @@ class GalaxyActivity(activity.BaseActivity):
             msg = OK.encode('utf-8')
             if len(self.net_queue) > 0:
                 msg = self.net_queue.pop()
+                print(msg)
 
             self.s.send(msg)

@@ -48,7 +48,9 @@ class LoadingActivity(activity.BaseActivity):
     def waiting_for_server(self):
         while True:
             data = self.s.recv(BUF_SIZE) # waiting for READY signal from server
-            helpers.add_session_data('stations_number', int(data.decode('utf-8')))
+            num, col = [int(x) for x in str(data.decode('utf-8')).split(';')]
+            helpers.add_session_data('stations_number', num)
+            helpers.add_session_data('playing_as', col)
             helpers.change_activity('galaxy')
             return
 

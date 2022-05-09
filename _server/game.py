@@ -2,7 +2,6 @@ import json
 import time
 import threading
 
-import black as black
 import pygame
 import numpy as np
 
@@ -140,7 +139,6 @@ class Game:
                 nearest_d = 3000
                 for st in self.stations:
                     if s.color != st.color:
-                        print(s.color, st.color)
                         d = distance(s.pos, st.pos)
                         if d < s.range:
                             move = False

@@ -11,6 +11,15 @@ def distance(a, b):
     return np.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
 
 
+class Explosion(gameObject.GameObject):
+    def __init__(self, pos):
+        super().__init__(
+            collider=colliders.Collider.CIRCLE,
+            position=pos,
+            img_path=f'_client/img/explosion.png',
+            tag='explosion'
+        )
+
 class Carrier(gameObject.GameObject):
     def __init__(self, pos, col='red'):
         super().__init__(
@@ -115,9 +124,7 @@ class GalaxyActivity(activity.BaseActivity):
         # cleaning
         gameObjects = []
         for g in self.gameObjects:
-            if g.tag != 'ship':
-                if g.tag == 'explosion' and g.time < 0:
-                    continue
+            if g.tag != 'ship' and g.tag != 'explosion':
                 gameObjects.append(g)
 
         data = json.loads(data.decode('utf-8'))
@@ -148,6 +155,14 @@ class GalaxyActivity(activity.BaseActivity):
                     pass
                 elif s == 1: # carrier
                     gameObjects.append(Carrier((x, y), col))
+
+        # explosions
+        explosions_string = data['explosions']
+        if explosions_string != '':
+            explosions = explosions_string.split('#')
+            for i, s in enumerate(explosions):
+                x, y = [int(float(v) // 1) for v in s.split(';')]
+                gameObjects.append(Explosion((x, y)))
 
         self.gameObjects = gameObjects
 

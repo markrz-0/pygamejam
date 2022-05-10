@@ -1,6 +1,7 @@
 import json
 import time
 import threading
+import random
 
 import pygame
 import numpy as np
@@ -14,6 +15,8 @@ from config import *
 def distance(a, b):
     return np.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
 
+EXPLOSION_TIME = 1
+
 class Game:
     def __init__(self):
         self.client1 = None
@@ -24,6 +27,7 @@ class Game:
 
         self.ships = []
         self.explosions = []
+        self.remove_explosion = []
         self.stations = [
             Station((100, 100), Station.RED),
             Station((1000, 100), Station.RED),
@@ -52,6 +56,15 @@ class Game:
         strings = [str(s) for s in self.ships]
         return '#'.join(strings)
 
+    def explosions_string(self):
+        return '#'.join(self.explosions)
+
+    def create_explosion(self, pos):
+        offset_x = random.randint(-20, 20)
+        offset_y = random.randint(-20, 20)
+        self.remove_explosion.append(time.time() + EXPLOSION_TIME)
+        self.explosions.append(f'{pos[0] + offset_x};{pos[1] + offset_y}')
+
     def handle_client(self, cl: client.Client, index):
         clock = pygame.time.Clock()
 
@@ -73,8 +86,9 @@ class Game:
             data = {
                 "stations": self.stations_string(),
                 'ships': self.ships_string(),
-                'winner': self.winner, # TODO: explosions
-                'elixir': int(cl.elixir)
+                'winner': self.winner,
+                'elixir': int(cl.elixir),
+                'explosions': self.explosions_string()
             }
 
             data = json.dumps(data).encode('utf-8')
@@ -110,7 +124,6 @@ class Game:
         self.client1 = client1
         self.client2 = client2
 
-
         threading.Thread(target=self.handle_client, args=(self.client1, 1)).start()
         threading.Thread(target=self.handle_client, args=(self.client2, 2)).start()
 
@@ -119,6 +132,11 @@ class Game:
         self.client2.last_recv = time.time()
 
         while True:
+
+            while len(self.remove_explosion) > 0 and self.remove_explosion[0] < time.time():
+                self.remove_explosion.pop()
+                self.explosions.pop()
+
             delta = self.clock.tick(60)
 
             t = time.time()
@@ -159,7 +177,8 @@ class Game:
 
                 if nearest is not None:
                     if s.reloaded:
-                        s.shoot() # TODO: explosions
+                        s.shoot()
+                        self.create_explosion(nearest.pos)
                         nearest.health -= s.dmg
                         nearest.last_hit = s.color
 
@@ -198,7 +217,7 @@ class Game:
 
                 if st.reloaded and st.target is not None:
                     st.shoot() # station has target
-                    # TODO: explosions
+                    self.create_explosion(st.target.pos)
 
             if blue == 0:
                 print("W#3")

@@ -3,7 +3,7 @@ import socket
 IP = socket.gethostbyname(socket.gethostname())
 PORT = 6969
 
-BUF_SIZE = 8192
+BUF_SIZE = 1024 * 32
 
 DISCONNECT_THRESHOLD = 3.5 # in seconds
 
